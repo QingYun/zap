@@ -22,11 +22,15 @@ package zap
 
 import (
 	"log"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
 	"go.uber.org/zap/internal/observer"
+	"go.uber.org/zap/testutils"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -57,6 +61,34 @@ func TestReplaceGlobals(t *testing.T) {
 
 	assert.Equal(t, initialL, *L, "Expected func returned from ReplaceGlobals to restore initial L.")
 	assert.Equal(t, initialS, *S, "Expected func returned from ReplaceGlobals to restore initial S.")
+}
+
+func TestGlobalsConcurrentUse(t *testing.T) {
+	var (
+		stop atomic.Bool
+		wg   sync.WaitGroup
+	)
+
+	for i := 0; i < 100; i++ {
+		wg.Add(2)
+		go func() {
+			for stop.Load() {
+				ReplaceGlobals(New(nil))
+			}
+			wg.Done()
+		}()
+		go func() {
+			for stop.Load() {
+				L.Info("")
+				S.Info("")
+			}
+			wg.Done()
+		}()
+	}
+
+	testutils.Sleep(100 * time.Millisecond)
+	stop.Toggle()
+	wg.Wait()
 }
 
 func TestRedirectStdLog(t *testing.T) {

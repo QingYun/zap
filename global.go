@@ -29,9 +29,6 @@ import (
 var (
 	// L is a global Logger. It defaults to a no-op implementation but can be
 	// replaced using ReplaceGlobals.
-	//
-	// Both L and S are unsynchronized, so replacing them while they're in
-	// use isn't safe.
 	L = New(nil)
 	// S is a global SugaredLogger, similar to L. It also defaults to a no-op
 	// implementation.
@@ -40,11 +37,9 @@ var (
 
 // ReplaceGlobals replaces the global Logger L and the global SugaredLogger S,
 // and returns a function to restore the original values.
-//
-// Note that replacing the global loggers isn't safe while they're being used;
-// in practice, this means that only the owner of the application's main
-// function should use this method.
 func ReplaceGlobals(logger *Logger) func() {
+	// This doesn't require synchronization to be safe, since pointers are a
+	// single word.
 	prev := *L
 	L = logger
 	S = logger.Sugar()
